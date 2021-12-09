@@ -41,6 +41,7 @@ for t in range(0, 53):#dimension tiempo
 #Hx1 = -11.2999857326264*(Hx1.so2.values)
 #print(Hx1.values)"""
 
+"""
 with xr.open_dataset('sulphur_dioxideEne_dic2003_2020CMAS.nc') as ds:
     print(ds.so2.attrs)  # time slice
 
@@ -98,3 +99,90 @@ plt.savefig(
     'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
     + str(so24d.time.values) + '.png')
 plt.show()
+"""
+
+with xr.open_dataset('sulphur2003eneFeb.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
+    print(ds.so2.attrs)  # time slice
+print(ds)
+
+# so2_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01'))
+# calculate and assign the height coordinate to the set.
+so2_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
+                                                                 ds.level[8].values))))
+meanMax1 = list()
+# altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
+# so2_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
+print(so2_2003_2020.height.values)
+# Swap the level and height dimensions
+so2_2003_2020 = so2_2003_2020.swap_dims({"level": "height"})
+selected = so2_2003_2020.where(lambda x: x.time.dt.year == 2003, drop=True)
+##print(so2_2003_2020)
+for t in range(len(ds.time)):
+    so24d = so2_2003_2020.so2.isel(time=t)
+    so24dC = so24d.copy()
+    print(so24d.values)
+    # calculate so24d[z] / so24d[0] normalización
+    for h in range(len(so24d.height)):
+        so24dC[h, :, :] = so24d.isel(height=h).values / so24d[8, :, :].values
+    print("\n\n\n\n\n", type(so24dC), "\n", so24dC)
+    # so24d = so24d.sel(height= slice(5.476,-0.0))
+    # so24d = so2_2003_2020.so2.sel(level = slice(500,1000)).polyfit(dim='level', deg=1)
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    # Hx = -1 / (so24dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+    Hx = so24dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
+    print(Hx)
+
+    HXPolyvald = xr.polyval(so24dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
+    # HXPolyvald = HXPolyvald*100
+    print(HXPolyvald)
+    ##print(Hx.polyfit_coefficients)
+    ##print("min()\n", Hx.polyfit_coefficients[0, :, :].min().values)
+    ##print("max()\n", Hx.polyfit_coefficients[0, :, :].max().values)
+    # print("min()\n", Hx.polyfit_coefficients[1, :, :].min().values)
+    # print("max()\n", Hx.polyfit_coefficients[1, :, :].max().values)
+    meanMax1.append(Hx.polyfit_coefficients[0, :, :].max().values)
+
+    cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+    ax.coastlines()
+    # ax.set_ylabel('YLabel 1')
+    # fig.align_ylabels()
+    # ax.set_ylabel('verbosity coefficient')
+    # ax.set_yticks([0,HXPolyvald['latitude'].max().values])
+    # ax.set_xticks([0, HXPolyvald['longitude'].max().values])
+
+    # HXPolyvald[1,:,:].plot.contourf(cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
+    #                                levels=(np.linspace(0.5, HXPolyvald.max().values, num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
+    # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+
+    Hx.polyfit_coefficients[0, :, :].plot.contourf(
+        cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
+            levels=(np.linspace(0.5, Hx.polyfit_coefficients[0, :, :].max().values,
+                                num=200)), cmap=cmap, vmin=0.5)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+    # Hx.polyfit_coefficients[1, :, :].plot.contourf(
+    #    cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'}, levels=(
+    #        np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
+    #                    num=33)))  # Hx.polyfit_coefficients[1,:,:].plot.contourf()
+    # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(
+    #    np.linspace(Hx.polyfit_coefficients[0,:,:].min().values, Hx.polyfit_coefficients[0,:,:].max().values,
+    #    num=10000)))  # -1 / Hx.polyfit_coefficients[0,:,:].plot.contourf()
+    # Hx.polyfit_coefficients[1, :, :].plot.contourf(levels=(
+    #    np.linspace(Hx.polyfit_coefficients[1,:,:].min().values, Hx.polyfit_coefficients[1,:,:].max().values,
+    #    num=200)))# -1 / Hx.polyfit_coefficients[1,:,:].plot.contourf()
+
+    ax.gridlines(draw_labels=True)
+
+    # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
+
+    plt.title("Concentration SO2 " + str(so24d.time.values))
+    plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
+                'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+                + str(so24d.time.values) + '.png')
+
+    plt.show()
+print(np.mean(meanMax1))
