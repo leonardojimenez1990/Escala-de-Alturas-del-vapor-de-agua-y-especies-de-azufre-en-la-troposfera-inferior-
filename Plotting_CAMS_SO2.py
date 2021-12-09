@@ -1,12 +1,14 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from matplotlib.cm import get_cmap
 import cartopy.crs as ccrs
 import cartopy.feature as cf
 from cartopy.feature import NaturalEarthFeature
+from xarray.plot.utils import legend_elements
 
 """
 with xr.open_dataset('sulphur_dioxideJun_ago2003_2020CMAS.nc') as ds:
