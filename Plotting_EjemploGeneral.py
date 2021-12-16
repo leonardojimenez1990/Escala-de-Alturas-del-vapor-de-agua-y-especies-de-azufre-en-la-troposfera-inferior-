@@ -64,15 +64,26 @@ ds = xr.Dataset(
 # the inverse of the logarithmic formulation dependent on the pressure in the height.
 
 # calculate and assign the height coordinate to the set.
-so2_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-                                                                 ds.level[8].values))))
+#so2_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
+#                                                                 ds.level[8].values))))
+
+so2_2003_2020 = ds.assign_coords(height=("level", [np.percentile(ds.so2[0, 0, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 1, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 2, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 3, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 4, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 5, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 6, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 7, :, :].values, 87),
+                                                   np.percentile(ds.so2[0, 8, :, :].values, 87)]))
 
 ##Then the height values are introduced to the datasets exchanging the
 # values in the dimension [pressure levels], (pressure levels for the calculated height values).
 
+#print(so2_2003_2020.height.values)
 # Swap the level and height dimensions
 so2_2003_2020 = so2_2003_2020.swap_dims({"level": "height"})
-selected = so2_2003_2020.where(lambda x: x.time.dt.year == 2003, drop=True)
+#selected = so2_2003_2020.where(lambda x: x.time.dt.year == 2003, drop=True)
 
 for t in range(len(ds.time)):
     so24d = so2_2003_2020.so2.isel(time=t)
@@ -99,18 +110,24 @@ for t in range(len(ds.time)):
     # obtained from the polyfit () method. You     ##get a 3-dimensional array
     # `DataArray` (height, latitude, longitude).
 
-    HXPolyvald = xr.polyval(so24dC['height'], Hx.polyfit_coefficients[1, :, :], degree_dim='degree')
-    print(HXPolyvald[1, :, :])
+    # HXPolyvald = xr.polyval(so24dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
+    # print(HXPolyvald[0, :, :])
+    
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
     # plot SO2
     fig = plt.figure(1, figsize=(15., 12.))
     ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
     ax.coastlines()
 
-    HXPolyvald[1, :, :].plot.contourf(
-        cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-        levels=(np.linspace(0.5, HXPolyvald.max().values,
-                            num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
+    Hx.polyfit_coefficients[1, :, :].plot.contourf(
+            cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
+            levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
+                                num=10)), cmap=cmap, vmin=0.5,
+            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
 
     ax.gridlines(draw_labels=True)
 
