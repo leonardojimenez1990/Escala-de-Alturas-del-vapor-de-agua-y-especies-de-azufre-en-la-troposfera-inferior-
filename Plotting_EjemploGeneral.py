@@ -37,7 +37,7 @@ da = xr.DataArray(np.random.randn(2, 9, 241, 480),
 # np.random.seed(0)
 so2 = (10 ** -10) * np.random.randn(480, 241, 9, 2)
 longitude = np.linspace(0, 359.2, 480)
-latitude = np.linspace(90, -90, 241)
+latitude = np.linspace(-90, 90, 241)
 level = [500, 600, 700, 800, 850, 900, 925, 950, 1000]
 time = pd.date_range("2003-01-01", periods=2)
 reference_time = pd.Timestamp("2003-01-01")
