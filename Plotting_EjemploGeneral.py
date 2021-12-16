@@ -127,7 +127,7 @@ for t in range(len(ds.time)):
             cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
             levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
                                 num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
+            vmax=Hx.polyfit_coefficients[1, :, :].max().values)
 
     ax.gridlines(draw_labels=True)
 
