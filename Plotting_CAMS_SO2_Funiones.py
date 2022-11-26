@@ -22,8 +22,7 @@ from scipy import stats as st
 
 # crear archivo gif
 def gif():
-    pach = '/home/leo/Documentos/Universidad/Trabajo_de_investigación/' \
-           'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/0.5SulfurdioxideResultados10122021/'
+    pach = '../Datos/salidas/0.5SulfurdioxideResultados10122021/'
     archivos = os.listdir(pach)
     img_arr = []
 
@@ -33,39 +32,45 @@ def gif():
 
         leer_img = imageio.imread(dirArchivos)
         img_arr.append(leer_img)
-        imageio.mimwrite('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                         'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        imageio.mimwrite('../Datos/salidas/'
                          '0.5SulfurdioxideResultados10122021/gif.gif', img_arr, 'GIF', duration='0.5')
+# Graficos del analisis precursor
+def creargraficoso2(ds, so2_2003_2020):
+    dfgraficoso2 = ds.so2.to_dataframe()
+    dfgraficoso2 = dfgraficoso2.reset_index()
+    dfgraficoso2 = dfgraficoso2[['time', 'level', 'so2']].set_index('time')
+    colors = np.random.rand(5000000)
+    plt.scatter(dfgraficoso2.index[:5000000],dfgraficoso2.so2.values[:5000000],
+                s=dfgraficoso2.level.values[:5000000], c=colors, alpha=0.5)
+    #plt.scatter(dfgraficoso2.index,dfgraficoso2.level.values,s=dfgraficoso2.so2.values,alpha=0.5)
+    # dfgraficoso2['so2'].plot()
+    plt.show()
+
+    dfgraficoso2 = dfgraficoso2.reset_index()
+    dfgraficoso2 = dfgraficoso2[['time','so2']].set_index('time')
+    plt.plot(dfgraficoso2)
+    #dfgraficoso2['so2'].plot()
+    plt.show()
 
 
 def leersulphur_dioxide2003_2021CMAS():
     with xr.open_dataset('sulphur_dioxide2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
         print(ds.so2.attrs)
-    # print(ds)
+        # Append the height dimension
+        so2_2003_2020 = ds.expand_dims({"height": 9})
 
-    # so2_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
-    # calculate and assign the height coordinate to the set.
-    # so2_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                 ds.level[8].values))))
+        # so2_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # seleccionar periodo de tiempo
 
-    so2_2003_2020 = ds.assign_coords(height=("level", [np.percentile(ds.so2[0, 0, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 1, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 2, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 3, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 4, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 5, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 6, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 7, :, :].values, 87),
-                                                       np.percentile(ds.so2[0, 8, :, :].values, 87)]))
-    # so2_2003_2020 = ds.assign_coords(height=("level", [1.56887836e-10,2.09070095e-10,2.78646439e-10,3.48222784e-10,
-    #                                                   4.00405042e-10,4.70038231e-10,5.22220489e-10,5.74402748e-10,
-    #                                                   6.09190920e-10]))
+        # calculate and assign the height coordinate to the set.
+        # calculate height = H * ln(level0 / level) where H = -7.9
+        so2_2003_2020 = so2_2003_2020.assign_coords(height=("height", (
+                7.9 * np.log(ds.level[8].values / ds.level.sel(level=slice(500, 1000)).values))))
 
-    print(so2_2003_2020.height.values)
-    # Swap the level and height dimensions
-    so2_2003_2020 = so2_2003_2020.swap_dims({"level": "height"})
-    print(so2_2003_2020.so2[0, :, 0, 0].values)
-    print(np.percentile(so2_2003_2020.so2[0, 0, :, :].values, 87))
+        # Calcular de los valores de so2 / valores de so2 en 950 HPa
+        so2_2003_2020['so2'] = so2_2003_2020.so2 / (so2_2003_2020.so2.isel(height=7, level=7)+1)
+
+        # Calcular el log de los datos de so2
+        # log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     return ds, so2_2003_2020
 
 
@@ -86,13 +91,16 @@ def meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020):
     # so2_2003_2020 = so2_2003_2020.swap_dims({"level": "height"})
     # seleccionar los periodos por meses y calcular las medias de los meses de los años
     cont = 0
+    # Calcular el log de los datos de so2
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(5.476, 0.4052)))
+    print(log_so2_2003_2020.sel(time='2003' + '-' + '01' + '-01'))
     for i in range(1, 13):
-        listaDsMeses.append(so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        listaDsMeses.append(log_so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
         contAnho, sumaDsAnho = 0, 0
         for j in range(int(str(listaDsMeses[cont].time[0].values)[0:4]),
                        int(str(listaDsMeses[0].time[-1].values)[0:4])):
-            print(listaDsMeses[cont].so2.sel(time=str(j) + '-' + str(i) + '-01'))
-            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].so2.sel(time=str(j) + '-' + str(i) + '-01')
+            print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
             contAnho += 1
         print('Suma de los meses: ' + str(i) + ' para todos los años es:\n ', sumaDsAnho)
         listaMeanMeses.append(sumaDsAnho / contAnho)
@@ -100,16 +108,14 @@ def meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020):
 
         # calculate so24d[z] / so24d[0] normalización
         so24d = listaMeanMeses[cont]
-        print(so24d)
-        so24dC = so24d.copy()
-        for h in range(len(so24d.height)):
-            so24dC[h, :, :] = so24d.isel(height=h).values / so24d.isel(height=8).values  # so24d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(so24dC), "\n", so24dC)
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
         # Hx = -1 / (so24dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = so24dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
         cmap = copy.copy(mpl.cm.get_cmap("jet"))
@@ -119,21 +125,24 @@ def meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020):
         # plot SO2
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
 
-        Hx.polyfit_coefficients[1, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values, alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=1, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+        # ax.set_ylabel('Km')
 
-        # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
-
-        plt.title('Mean Sulfur dioxide of months: ' + str(i) + ' 2003 - 2020 ')
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        plt.title('Mean vertical profile scale Sulfur dioxide (SO2) of months: ' + str(i) + ' 2003 - 2020 ')
+        plt.savefig('../Datos/salidas/'
                     + 'MediaMesSulfur dioxide' + str(i) + '.png')  # ,dpi=720
 
         plt.show()
@@ -141,93 +150,306 @@ def meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020):
         cont += 1
 
 
+def meanMesesDec_Febsulphur_dioxide2003_2021CMAS(so2_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2 para el perfil vertical de 600 - 950 HPa
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [12, 1, 2]:
+        listaDsMeses.append(log_so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                   transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                   linewidth=0.5, vmin=0, vmax=2.8, cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+
+    plt.title('Mean vertical profile scale Sulfur dioxide (SO2) of months Dec, Jun, Feb: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesDec_FebSulfur dioxide' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesMar_Maysulphur_dioxide2003_2021CMAS(so2_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [3, 4, 5]:
+        listaDsMeses.append(log_so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / (k.polyfit_coefficients[0] * 950 + 1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulfur dioxide (SO2) of months Mar, Apr, May: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesMar_MaySulfur dioxide' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesJun_Augsulphur_dioxide2003_2021CMAS(so2_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [6, 7, 8]:
+        listaDsMeses.append(log_so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulfur dioxide (SO2) of months Jun, Jul, Aug: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesJun_Ago Sulfur dioxide' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesSep_Novsulphur_dioxide2003_2021CMAS(so2_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [9, 10, 11]:
+        listaDsMeses.append(log_so2_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulfur dioxide (SO2) of months Sep, Oct, Nov: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesSep_Nov Sulfur dioxide' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
 def sulphur_dioxide2003_2021CMAS(ds, so2_2003_2020):
-    # with xr.open_dataset('sulphur_dioxide2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
-    #     print(ds.so2.attrs)
-    # print(ds)
-    #
-    # # so2_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
-    # # calculate and assign the height coordinate to the set.
-    # so2_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                  ds.level[8].values))))
+    # Calcular el log de los datos de so2
+    log_so2_2003_2020 = np.log(so2_2003_2020.so2.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
     meanMax1 = list()
-    # altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
-    # so2_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
-    # print(so2_2003_2020.height.values)
-    # Swap the level and height dimensions
-    # so2_2003_2020 = so2_2003_2020.swap_dims({"level": "height"})
-    # selected = so2_2003_2020.where(lambda x: x.time.dt.year == 2020, drop=True) # seleccionar un periodo de
-    # print("Valores de los datos con los calculos de altura y la seleccion de la dimension time por anho \n",selected)
-    # print("Valores de los datos con los calculos de altura \n",so2_2003_2020.sel(time="2003-01-01"))
     for t in range(len(ds.time)):
         so24d = so2_2003_2020.so2.isel(time=t)
-        so24dC = so24d.copy()
-        print(so24d)
-        # calculate so24d[z] / so24d[0] normalización
-        for h in range(len(so24d.height)):
-            so24dC[h, :, :] = so24d.isel(height=h).values / so24d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(so24dC), "\n", so24dC)
-        # so24d = so24d.sel(height= slice(5.476,-0.0))
-        # so24d = so2_2003_2020.so2.sel(level = slice(500,1000)).polyfit(dim='level', deg=1)
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (so24dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = so24dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # k = -1 / (so24dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = log_so2_2003_2020[0, t, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
-        # evaluar los resultados de la regresión lineal por ninimos cuadrados
-        # HXPolyvald = xr.polyval(so24dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
-        # HXPolyvald = HXPolyvald*100
-        # print(" Evaluacion de los Valores del mejor ajuste polyval \n", HXPolyvald)
-        ##print(Hx.polyfit_coefficients)
-        ##print("min()\n", Hx.polyfit_coefficients[0, :, :].min().values)
-        ##print("max()\n", Hx.polyfit_coefficients[0, :, :].max().values)
-        # print("min()\n", Hx.polyfit_coefficients[1, :, :].min().values)
-        # print("max()\n", Hx.polyfit_coefficients[1, :, :].max().values)
-        meanMax1.append(Hx.polyfit_coefficients[0, :, :].max().values)
+        meanMax1.append(Hx.max().values)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
-        cmap = copy.copy(mpl.cm.get_cmap("jet"))
+        cmap = copy.copy(mpl.cm.get_cmap("BuPu"))
         cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
         cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
         # plot SO2
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
-        # ax.set_ylabel('YLabel 1')
-        # fig.align_ylabels()
-        # ax.set_ylabel('verbosity coefficient')
-        # ax.set_yticks([0,HXPolyvald['latitude'].max().values])
-        # ax.set_xticks([0, HXPolyvald['longitude'].max().values])
 
-        # HXPolyvald[1,:,:].plot.contourf(cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-        #                                levels=(np.linspace(0.5, HXPolyvald.max().values, num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
-        Hx.polyfit_coefficients[0, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[0, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[0, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(
-        #    cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'}, levels=(
-        #        np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-        #                    num=33)))  # Hx.polyfit_coefficients[1,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[0,:,:].min().values, Hx.polyfit_coefficients[0,:,:].max().values,
-        #    num=10000)))  # -1 / Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[1,:,:].min().values, Hx.polyfit_coefficients[1,:,:].max().values,
-        #    num=200)))# -1 / Hx.polyfit_coefficients[1,:,:].plot.contourf()
-
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
 
         # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
 
         plt.title("Better fit. Sulfur dioxide (SO2) " + str(so24d.time.values))
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        plt.savefig('../Datos/salidas/'
                     + 'Sulfur dioxide' + str(so24d.time.values) + '.png')  # ,dpi=720
 
         plt.show()
@@ -239,26 +461,23 @@ def leersulphate_aerosol_mixing_ratio2003_2021CMAS():
     with xr.open_dataset(
             'sulphate_aerosol_mixing_ratio2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
         print(ds.aermr11.attrs)
-    # print(ds)
 
-    # aermr11_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
-    # calculate and assign the height coordinate to the set.
-    # aermr11_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                     ds.level[8].values))))
+        # Append the height dimension
+        aermr11_2003_2020 = ds.expand_dims({"height": 9})
 
-    aermr11_2003_2020 = ds.assign_coords(height=("level", [np.percentile(ds.aermr11[0, 0, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 1, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 2, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 3, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 4, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 5, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 6, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 7, :, :].values, 87),
-                                                           np.percentile(ds.aermr11[0, 8, :, :].values, 87)]))
+        # aermr11_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # seleccionar periodo de tiempo
 
-    print(aermr11_2003_2020.height.values)
-    # Swap the level and height dimensions
-    aermr11_2003_2020 = aermr11_2003_2020.swap_dims({"level": "height"})
+        # calculate and assign the height coordinate to the set.
+        # calculate height = H * ln(level0 / level) where H = -7.9
+        aermr11_2003_2020 = aermr11_2003_2020.assign_coords(height=("height", (
+                7.9 * np.log(ds.level[8].values / ds.level.sel(level=slice(500, 1000)).values))))
+
+        # Calcular de los valores de so2 / valores de aermr11 en 950 HPa
+        aermr11_2003_2020['aermr11'] = aermr11_2003_2020.aermr11 / (aermr11_2003_2020.aermr11.isel(height=7, level=7)+1)
+        print(aermr11_2003_2020)
+
+        # Calcular el log de los datos de aermr11
+        # log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     return ds, aermr11_2003_2020
 
 
@@ -279,152 +498,363 @@ def meanMesessulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020):
     # aermr11_2003_2020 = aermr11_2003_2020.swap_dims({"level": "height"})
     # seleccionar los periodos por meses y calcular las medias de los meses de los años
     cont = 0
+    # Calcular el log de los datos de aermr11
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    print(log_aermr11_2003_2020.sel(time='2003' + '-' + '01' + '-01'))
     for i in range(1, 13):
-        listaDsMeses.append(aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        listaDsMeses.append(log_aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
         contAnho, sumaDsAnho = 0, 0
         for j in range(int(str(listaDsMeses[cont].time[0].values)[0:4]),
                        int(str(listaDsMeses[0].time[-1].values)[0:4])):
-            print(listaDsMeses[cont].aermr11.sel(time=str(j) + '-' + str(i) + '-01'))
-            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].aermr11.sel(time=str(j) + '-' + str(i) + '-01')
+            print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
             contAnho += 1
         print('Suma de los meses: ' + str(i) + ' para todos los años es:\n ', sumaDsAnho)
         listaMeanMeses.append(sumaDsAnho / contAnho)
         print('Media de los meses: ' + str(i) + ' para todos los años es:\n ', listaMeanMeses[cont])
 
-        # calculate aermr114d[z] / aermr114d[0] normalización
-        aermr114d = listaMeanMeses[cont]
-        print(aermr114d)
-        aermr114dC = aermr114d.copy()
-        for h in range(len(aermr114d.height)):
-            aermr114dC[h, :, :] = aermr114d.isel(height=h).values / aermr114d.isel(
-                height=8).values  # aermr114d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(aermr114dC), "\n",
-              aermr114dC)
+        # calculate aermr11d[z] / aermr11d[0] normalización
+        aermr11d = listaMeanMeses[cont]
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (aermr114dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = aermr114dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # Hx = -1 / (aermr11dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = aermr11d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
         cmap = copy.copy(mpl.cm.get_cmap("jet"))
         cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
         cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
-        # plot aermr11
+        # plot AERMR11
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
 
-        Hx.polyfit_coefficients[1, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+        # ax.set_ylabel('Km')
 
-        # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
-
-        plt.title('Mean Sulphate Aerosol Mixing Ratio of months: ' + str(i) + ' 2003 - 2020 ')
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        plt.title('Mean vertical profile scale Sulphate Aerosol Mixing Ratio (AERMR11) of months: ' + str(i) + ' 2003 - 2020 ')
+        plt.savefig('../Datos/salidas/'
                     + 'MediaMesSulphate Aerosol Mixing Ratio' + str(i) + '.png')  # ,dpi=720
 
         plt.show()
 
         cont += 1
 
+def meanMesesDec_Febsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [12, 1, 2]:
+        listaDsMeses.append(log_aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulphate Aerosol Mixing Ratio (AERMR11) of months Dec, Ene, Feb: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesDec_FebSulphate Aerosol Mixing Ratio' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesMar_Maysulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [3, 4, 5]:
+        listaDsMeses.append(log_aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulphate Aerosol Mixing Ratio (AERMR11) of months Mar, Apr, May: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesMar_MaySulphate Aerosol Mixing Ratio' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesJun_Augsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [6, 7, 8]:
+        listaDsMeses.append(log_aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulphate Aerosol Mixing Ratio (AERMR11) of months Jun, Jul, Aug: ' + str(i) + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesJun_Ago Sulphate Aerosol Mixing Ratio' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesSep_Novsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [9, 10, 11]:
+        listaDsMeses.append(log_aermr11_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Sulphate Aerosol Mixing Ratio (AERMR11) of months Sep, Oct, Nov: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesSep_Nov Sulphate Aerosol Mixing Ratio' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
 
 def sulphate_aerosol_mixing_ratio2003_2021CMAS(ds, aermr11_2003_2020):
-    # with xr.open_dataset(
-    #         'sulphate_aerosol_mixing_ratio2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
-    #     print(ds.aermr11.attrs)  # time slice
-    # print(ds)
-    #
-    # # aermr11_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01'))
-    # # calculate and assign the height coordinate to the set.
-    # aermr11_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                      ds.level[8].values))))
+    # Calcular el log de los datos de aermr11
+    log_aermr11_2003_2020 = np.log(aermr11_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     meanMax1 = list()
-    # # altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
-    # # aermr11_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
-    # print(aermr11_2003_2020.height.values)
-    # # Swap the level and height dimensions
-    # aermr11_2003_2020 = aermr11_2003_2020.swap_dims({"level": "height"})
-    # selected = aermr11_2003_2020.where(lambda x: x.time.dt.year == 2020, drop=True) # seleccionar un periodo de
-    # print("Valores de los datos con los calculos de altura y la seleccion de la dimension time por anho \n",selected)
-    # print("Valores de los datos con los calculos de altura \n",aermr11_2003_2020.sel(time="2003-01-01"))
     for t in range(len(ds.time)):
-        aermr114d = aermr11_2003_2020.aermr11.isel(time=t)
-        aermr114dC = aermr114d.copy()
-        print(aermr114d)
-        # calculate aermr114d[z] / aermr114d[0] normalización
-        # for h in range(len(aermr114d.height)):
-        #    aermr114dC[h, :, :] = aermr114d.isel(height=h).values / aermr114d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(aermr114dC), "\n",
-              aermr114dC)
-        # aermr114d = aermr114d.sel(height= slice(5.476,-0.0))
-        # aermr114d = aermr11_2003_2020.aermr11.sel(level = slice(500,1000)).polyfit(dim='level', deg=1)
+        aermr11d = aermr11_2003_2020.aermr11.isel(time=t)
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (aermr114dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = aermr114dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # k = -1 / (aermr11C.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = log_aermr11_2003_2020[0, t, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
-        HXPolyvald = xr.polyval(aermr114dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
-        # HXPolyvald = HXPolyvald*100
-        print(" Evaluacion de los Valores del mejor ajuste polyval \n", HXPolyvald)
-        ##print(Hx.polyfit_coefficients)
-        ##print("min()\n", Hx.polyfit_coefficients[0, :, :].min().values)
-        ##print("max()\n", Hx.polyfit_coefficients[0, :, :].max().values)
-        # print("min()\n", Hx.polyfit_coefficients[1, :, :].min().values)
-        # print("max()\n", Hx.polyfit_coefficients[1, :, :].max().values)
-        meanMax1.append(Hx.polyfit_coefficients[0, :, :].max().values)
+        meanMax1.append(Hx.max().values)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
-        cmap = copy.copy(mpl.cm.get_cmap("jet"))
+        cmap = copy.copy(mpl.cm.get_cmap("plasma")).reversed()
         cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
         cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
-        # plot aermr11
+        # plot AERMR11
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
-        # ax.set_ylabel('YLabel 1')
-        # fig.align_ylabels()
-        # ax.set_ylabel('verbosity coefficient')
-        # ax.set_yticks([0,HXPolyvald['latitude'].max().values])
-        # ax.set_xticks([0, HXPolyvald['longitude'].max().values])
 
-        # HXPolyvald[1,:,:].plot.contourf(cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-        #                                levels=(np.linspace(0.5, HXPolyvald.max().values, num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
-        Hx.polyfit_coefficients[0, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 Sulphate Aerosol Mixing Ratio'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[0, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[0, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(
-        #    cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'}, levels=(
-        #        np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-        #                    num=33)))  # Hx.polyfit_coefficients[1,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[0,:,:].min().values, Hx.polyfit_coefficients[0,:,:].max().values,
-        #    num=10000)))  # -1 / Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[1,:,:].min().values, Hx.polyfit_coefficients[1,:,:].max().values,
-        #    num=200)))# -1 / Hx.polyfit_coefficients[1,:,:].plot.contourf()
-
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
 
         # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
 
-        plt.title("Better fit. Sulphate Aerosol Mixing Ratio (aermr11) " + str(aermr114d.time.values))
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
-                    + 'Sulphate Aerosol Mixing Ratio' + str(aermr114d.time.values) + '.png')  # ,dpi=720
+        plt.title("Better fit. Sulphate Aerosol Mixing Ratio (AERMR11) " + str(aermr11d.time.values))
+        plt.savefig('../Datos/salidas/'
+                    + 'Sulphate Aerosol Mixing Ratio' + str(aermr11d.time.values) + '.png')  # ,dpi=720
 
         plt.show()
 
@@ -434,26 +864,23 @@ def sulphate_aerosol_mixing_ratio2003_2021CMAS(ds, aermr11_2003_2020):
 def leerso2_precursor_mixing_ratio2003_2021CMAS():
     with xr.open_dataset('so2_precursor_mixing_ratio2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
         print(ds.aermr12.attrs)
-    # print(ds)
 
-    # aermr12_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
-    # calculate and assign the height coordinate to the set.
-    # aermr12_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                     ds.level[8].values))))
+        # Append the height dimension
+        aermr12_2003_2020 = ds.expand_dims({"height": 9})
 
-    aermr12_2003_2020 = ds.assign_coords(height=("level", [np.percentile(ds.aermr12[0, 0, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 1, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 2, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 3, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 4, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 5, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 6, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 7, :, :].values, 87),
-                                                           np.percentile(ds.aermr12[0, 8, :, :].values, 87)]))
+        # aermr12_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # seleccionar periodo de tiempo
 
-    print(aermr12_2003_2020.height.values)
-    # Swap the level and height dimensions
-    aermr12_2003_2020 = aermr12_2003_2020.swap_dims({"level": "height"})
+        # calculate and assign the height coordinate to the set.
+        # calculate height = H * ln(level0 / level) where H = -7.9
+        aermr12_2003_2020 = aermr12_2003_2020.assign_coords(height=("height", (
+                7.9 * np.log(ds.level[8].values / ds.level.sel(level=slice(500, 1000)).values))))
+
+        # Calcular de los valores de so2 / valores de aermr12 en 950 HPa
+        aermr12_2003_2020['aermr12'] = aermr12_2003_2020.aermr12 / (aermr12_2003_2020.aermr12.isel(height=7, level=7)+1)
+        print(aermr12_2003_2020)
+
+        # Calcular el log de los datos de aermr12
+        # log_aermr12_2003_2020 = np.log(aermr12_2003_2020.aermr12.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     return ds, aermr12_2003_2020
 
 
@@ -474,56 +901,59 @@ def meanMesesso2_precursor_mixing_ratio2003_2021CMAS(aermr12_2003_2020):
     # aermr12_2003_2020 = aermr12_2003_2020.swap_dims({"level": "height"})
     # seleccionar los periodos por meses y calcular las medias de los meses de los años
     cont = 0
+    # Calcular el log de los datos de aermr12
+    log_aermr12_2003_2020 = np.log(aermr12_2003_2020.aermr12.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    print(log_aermr12_2003_2020.sel(time='2003' + '-' + '01' + '-01'))
     for i in range(1, 13):
-        listaDsMeses.append(aermr12_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        listaDsMeses.append(log_aermr12_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
         contAnho, sumaDsAnho = 0, 0
         for j in range(int(str(listaDsMeses[cont].time[0].values)[0:4]),
                        int(str(listaDsMeses[0].time[-1].values)[0:4])):
-            print(listaDsMeses[cont].aermr12.sel(time=str(j) + '-' + str(i) + '-01'))
-            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].aermr12.sel(time=str(j) + '-' + str(i) + '-01')
+            print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
             contAnho += 1
         print('Suma de los meses: ' + str(i) + ' para todos los años es:\n ', sumaDsAnho)
         listaMeanMeses.append(sumaDsAnho / contAnho)
         print('Media de los meses: ' + str(i) + ' para todos los años es:\n ', listaMeanMeses[cont])
 
-        # calculate aermr124d[z] / aermr124d[0] normalización
-        aermr124d = listaMeanMeses[cont]
-        print(aermr124d)
-        aermr124dC = aermr124d.copy()
-        for h in range(len(aermr124d.height)):
-            aermr124dC[h, :, :] = aermr124d.isel(height=h).values / aermr124d.isel(
-                height=8).values  # aermr124d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(aermr124dC), "\n",
-              aermr124dC)
+        # calculate aermr12d[z] / aermr12d[0] normalización
+        aermr12d = listaMeanMeses[cont]
+        print(aermr12d[:8, :8, :, :])
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (aermr124dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = aermr124dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # Hx = -1 / (aermr12dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = aermr12d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
         cmap = copy.copy(mpl.cm.get_cmap("jet"))
         cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
         cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
-        # plot aermr12
+        # plot AERMR12
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
 
-        Hx.polyfit_coefficients[1, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+        # ax.set_ylabel('Km')
 
-        # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
-
-        plt.title('Mean SO2 precursor mixing ratio of months: ' + str(i) + ' 2003 - 2020 ')
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        plt.title('Mean vertical profile scale SO2 precursor mixing ratio (AERMR12) of months: ' + str(i) + ' 2003 - 2020 ')
+        plt.savefig('../Datos/salidas/'
                     + 'MediaMesSO2 precursor mixing ratio' + str(i) + '.png')  # ,dpi=720
 
         plt.show()
@@ -532,146 +962,76 @@ def meanMesesso2_precursor_mixing_ratio2003_2021CMAS(aermr12_2003_2020):
 
 
 def so2_precursor_mixing_ratio2003_2021CMAS(ds, aermr12_2003_2020):
-    # with xr.open_dataset('so2_precursor_mixing_ratio2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
-    #    print(ds.aermr12.attrs)  # time slice
-    # print(ds)
-
-    # aermr12_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01'))
-    # calculate and assign the height coordinate to the set.
-    # aermr12_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                     ds.level[8].values))))
+    # Calcular el log de los datos de aermr12
+    log_aermr12_2003_2020 = np.log(aermr12_2003_2020.aermr11.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     meanMax1 = list()
-    # altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
-    # aermr12_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
-    # print(aermr12_2003_2020.height.values)
-    # Swap the level and height dimensions
-    # aermr12_2003_2020 = aermr12_2003_2020.swap_dims({"level": "height"})
-    # selected = aermr12_2003_2020.where(lambda x: x.time.dt.year == 2020, drop=True) # seleccionar un periodo de
-    # print("Valores de los datos con los calculos de altura y la seleccion de la dimension time por anho \n",selected)
-    # print("Valores de los datos con los calculos de altura \n",aermr12_2003_2020.sel(time="2003-01-01"))
     for t in range(len(ds.time)):
-        aermr124d = aermr12_2003_2020.aermr12.isel(time=t)
-        aermr124dC = aermr124d.copy()
-        print(aermr124d)
-        # calculate aermr124d[z] / aermr124d[0] normalización
-        # for h in range(len(aermr124d.height)):
-        #    aermr124dC[h, :, :] = aermr124d.isel(height=h).values / aermr124d.isel(
-        #        height=8).values  # aermr124d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(aermr124dC), "\n",
-              aermr124dC)
-        # aermr124d = aermr124d.sel(height= slice(5.476,-0.0))
-        # aermr124d = aermr12_2003_2020.aermr12.sel(level = slice(500,1000)).polyfit(dim='level', deg=1)
+        aermr12d = aermr12_2003_2020.aermr12.isel(time=t)
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (aermr124dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = aermr124dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # k = -1 / (aermr12C.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = log_aermr12_2003_2020[0, t, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
-        HXPolyvald = xr.polyval(aermr124dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
-        # HXPolyvald = HXPolyvald*100
-        print(" Evaluacion de los Valores del mejor ajuste polyval \n", HXPolyvald)
-        ##print(Hx.polyfit_coefficients)
-        ##print("min()\n", Hx.polyfit_coefficients[0, :, :].min().values)
-        ##print("max()\n", Hx.polyfit_coefficients[0, :, :].max().values)
-        # print("min()\n", Hx.polyfit_coefficients[1, :, :].min().values)
-        # print("max()\n", Hx.polyfit_coefficients[1, :, :].max().values)
-        meanMax1.append(Hx.polyfit_coefficients[0, :, :].max().values)
+        meanMax1.append(Hx.max().values)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
-        cmap = copy.copy(mpl.cm.get_cmap("jet"))
+        cmap = copy.copy(mpl.cm.get_cmap("RdYlBu")).reversed()
         cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
         cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
 
-        # plot aermr12
+        # plot AERMR11
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
-        # ax.set_ylabel('YLabel 1')
-        # fig.align_ylabels()
-        # ax.set_ylabel('verbosity coefficient')
-        # ax.set_yticks([0,HXPolyvald['latitude'].max().values])
-        # ax.set_xticks([0, HXPolyvald['longitude'].max().values])
 
-        # HXPolyvald[1,:,:].plot.contourf(cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-        #                                levels=(np.linspace(0.5, HXPolyvald.max().values, num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
-        Hx.polyfit_coefficients[0, :, :].plot.contourf(
-            cbar_kwargs={'label': 'kg kg ** - 1 SO2 precursor mixing ratio'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[0, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[0, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(
-        #    cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'}, levels=(
-        #        np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-        #                    num=33)))  # Hx.polyfit_coefficients[1,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[0,:,:].min().values, Hx.polyfit_coefficients[0,:,:].max().values,
-        #    num=10000)))  # -1 / Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[1,:,:].min().values, Hx.polyfit_coefficients[1,:,:].max().values,
-        #    num=200)))# -1 / Hx.polyfit_coefficients[1,:,:].plot.contourf()
-
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
 
         # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
 
-        plt.title("Better fit. SO2 precursor mixing ratio (aermr12) " + str(aermr124d.time.values))
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
-                    + 'SO2 precursor mixing ratio' + str(aermr124d.time.values) + '.png')  # ,dpi=720
+        plt.title("Better fit. SO2 precursor mixing ratio (AERMR12) " + str(aermr12d.time.values))
+        plt.savefig('../Datos/salidas/'
+                    + 'SO2 precursor mixing ratio' + str(aermr12d.time.values) + '.png')  # ,dpi=720
 
         plt.show()
 
     print("Media de los Valores del mejor ajuste\n", np.mean(meanMax1))
 
 
-def leerrelative_humidity2003_2021CMAS():
+def leerrelative_humidity2003_2021CMAS(): #specific_humidity2003_2021CMAS.nc
     with xr.open_dataset(
             'relative_humidity2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
         print(ds.r.attrs)
-    # print(ds)
 
-    # r_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
-    # calculate and assign the height coordinate to the set.
-    # r_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                               ds.level[8].values))))
+        # Append the height dimension
+        r_2003_2020 = ds.expand_dims({"height": 9})
 
-    r_2003_2020 = ds.assign_coords(height=("level", [np.percentile(ds.r[0, 0, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 1, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 2, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 3, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 4, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 5, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 6, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 7, :, :].values, 87),
-                                                     np.percentile(ds.r[0, 8, :, :].values, 87)]))
+        # r_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # seleccionar periodo de tiempo
 
-    # r_2003_2020 = ds.assign_coords(
-    #    height=("level", [77.201065, 75.67061, 79.01246, 77.544876, 79.79242, 84.234474, 87.02819, 90.14018, 99.33862]))
+        # calculate and assign the height coordinate to the set.
+        # calculate height = H * ln(level0 / level) where H = -7.9
+        r_2003_2020 = r_2003_2020.assign_coords(height=("height", (
+                7.9 * np.log(ds.level[8].values / ds.level.sel(level=slice(500, 1000)).values))))
 
-    print(r_2003_2020.height.values)
-    # Swap the level and height dimensions
-    r_2003_2020 = r_2003_2020.swap_dims({"level": "height"})
-    print(r_2003_2020.r[0, :, :, :].values)
-    print('mean', r_2003_2020.r[0, 0, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 0, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 1, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 1, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 2, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 2, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 3, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 3, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 4, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 4, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 5, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 5, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 6, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 6, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 7, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 7, :, :].values, 87))
-    print('mean', r_2003_2020.r[0, 8, :, :].mean().values)
-    print('percentile', np.percentile(r_2003_2020.r[0, 8, :, :].values, 87))
+        # Calcular de los valores de so2 / valores de r en 950 HPa
+        r_2003_2020['r'] = r_2003_2020.r / (r_2003_2020.r.isel(height=7, level=7)+1)
+        print(r_2003_2020.r)
+
+        # Calcular el log de los datos de r
+        # log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     return ds, r_2003_2020
 
 
@@ -692,32 +1052,32 @@ def meanMesesrelative_humidity2003_2021CMAS(r_2003_2020):
     # r_2003_2020 = r_2003_2020.swap_dims({"level": "height"})
     # seleccionar los periodos por meses y calcular las medias de los meses de los años
     cont = 0
+    # Calcular el log de los datos de r
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    print(log_r_2003_2020.sel(time='2003' + '-' + '01' + '-01'))
     for i in range(1, 13):
-        listaDsMeses.append(r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        listaDsMeses.append(log_r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
         contAnho, sumaDsAnho = 0, 0
         for j in range(int(str(listaDsMeses[cont].time[0].values)[0:4]),
                        int(str(listaDsMeses[0].time[-1].values)[0:4])):
-            print(listaDsMeses[cont].r.sel(time=str(j) + '-' + str(i) + '-01'))
-            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].r.sel(time=str(j) + '-' + str(i) + '-01')
+            print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
             contAnho += 1
         print('Suma de los meses: ' + str(i) + ' para todos los años es:\n ', sumaDsAnho)
         listaMeanMeses.append(sumaDsAnho / contAnho)
         print('Media de los meses: ' + str(i) + ' para todos los años es:\n ', listaMeanMeses[cont])
 
-        # calculate r4d[z] / r4d[0] normalización
-        r4d = listaMeanMeses[cont]
-        print(r4d)
-        r4dC = r4d.copy()
-        for h in range(len(r4d.height)):
-            r4dC[h, :, :] = r4d.isel(height=h).values / r4d.isel(
-                height=8).values  # r4d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(r4dC), "\n",
-              r4dC)
+        # calculate rd[z] / rd[0] normalización
+        rd = listaMeanMeses[cont]
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (r4dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = r4dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # Hx = -1 / (rdC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = rd[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        # Hx = k.polyfit_coefficients[0]
+        print(Hx)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
         cmap = copy.copy(mpl.cm.get_cmap("jet"))
@@ -727,73 +1087,404 @@ def meanMesesrelative_humidity2003_2021CMAS(r_2003_2020):
         # plot r
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
 
-        Hx.polyfit_coefficients[1, :, :].plot.contourf(
-            cbar_kwargs={'label': '% Relative humidity'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[1, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+        # ax.set_ylabel('Km')
 
-        # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
-
-        plt.title('Mean Relative humidity of months: ' + str(i) + ' 2003 - 2020 ')
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
+        plt.title('Mean Relative humidity (r) of months: ' + str(i) + ' 2003 - 2020 ')
+        plt.savefig('../Datos/salidas/'
                     + 'MediaMesRelative humidity' + str(i) + '.png')  # ,dpi=720
 
         plt.show()
 
         cont += 1
 
+def meanMesesDec_Febrelative_humidity2003_2021CMAS(r_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2 2----------------------------3
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [12, 1, 2]:
+        listaDsMeses.append(log_r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950) +1)
+    # Hx = ((k.polyfit_coefficients[0] * 950) + 1) / 8
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Relative humidity (r) of months Dec, Ene, Feb: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesDec_FebRelative humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesMar_Mayrelative_humidity2003_2021CMAS(r_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2 3---------------------------------------------3
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [3, 4, 5]:
+        listaDsMeses.append(log_r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Relative humidity (r) of months Mar, Apr, May: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesMar_MayRelative humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesJun_Augrelative_humidity2003_2021CMAS(r_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2 4------------------------------------------------5
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [6, 7, 8]:
+        listaDsMeses.append(log_r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Relative humidity (r) of months Jun, Jul, Aug: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesJun_Aug Relative humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesSep_Novrelative_humidity2003_2021CMAS(r_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2 5---------------------------------------------6
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [9, 10, 11]:
+        listaDsMeses.append(log_r_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                      linewidth=0.5, vmin=0, vmax=2.8,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Relative humidity (r) of months Sep, Oct, Nov: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/'
+                    + 'MediaMesSep_Nov Relative humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
 
 def relative_humidity2003_2021CMAS(ds, r_2003_2020):
-    # with xr.open_dataset(
-    #         'relative_humidity2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
-    #     print(ds.r.attrs)  # time slice
-    # print(ds)
-    #
-    # # r_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01'))
-    # # calculate and assign the height coordinate to the set.
-    # r_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
-    #                                                                ds.level[8].values))))
+    # Calcular el log de los datos de r 6--------------------------------------------7
+    log_r_2003_2020 = np.log(r_2003_2020.r.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
     meanMax1 = list()
-    # # altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
-    # # r_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
-    # print(r_2003_2020.height.values)
-    # # Swap the level and height dimensions
-    # r_2003_2020 = r_2003_2020.swap_dims({"level": "height"})
-    # selected = r_2003_2020.where(lambda x: x.time.dt.year == 2020, drop=True) # seleccionar un periodo de
-    # print("Valores de los datos con los calculos de altura y la seleccion de la dimension time por anho \n",selected)
-    # print("Valores de los datos con los calculos de altura \n",r_2003_2020.sel(time="2003-01-01"))
     for t in range(len(ds.time)):
-        r4d = r_2003_2020.r.isel(time=t)
-        r4dC = r4d.copy()
-        print(r4d)
-        # calculate r4d[z] / r4d[0] normalización
-        # for h in range(len(r4d.height)):
-        #    r4dC[h, :, :] = r4d.isel(height=h).values / r4d[8, :, :].values
-        print("Valores de los datos con los calculos de la normalizacion \n\n\n\n\n", type(r4dC), "\n",
-              r4dC)
-        # r4d = r4d.sel(height= slice(5.476,-0.0))
-        # r4d = r_2003_2020.r.sel(level = slice(500,1000)).polyfit(dim='level', deg=1)
+        rd = r_2003_2020.r.isel(time=t)
 
         # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
-        # Hx = -1 / (r4dC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
-        Hx = r4dC.polyfit(dim='height', deg=1, full=True, cov=True)  # skipna=False
-        print("Valores del mejor ajuste polyfit \n", Hx)
+        # k = -1 / (rC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = log_r_2003_2020[0, t, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
 
-        HXPolyvald = xr.polyval(r4dC['height'], Hx.polyfit_coefficients[0, :, :], degree_dim='degree')
-        # HXPolyvald = HXPolyvald*100
-        print(" Evaluacion de los Valores del mejor ajuste polyval \n", HXPolyvald)
-        ##print(Hx.polyfit_coefficients)
-        ##print("min()\n", Hx.polyfit_coefficients[0, :, :].min().values)
-        ##print("max()\n", Hx.polyfit_coefficients[0, :, :].max().values)
-        # print("min()\n", Hx.polyfit_coefficients[1, :, :].min().values)
-        # print("max()\n", Hx.polyfit_coefficients[1, :, :].max().values)
-        meanMax1.append(Hx.polyfit_coefficients[0, :, :].max().values)
+        meanMax1.append(Hx.max().values)
+
+        # cmap = mpl.cm.jet  # seleccionar el color del mapa
+        cmap = copy.copy(mpl.cm.get_cmap("RdYlBu")).reversed()
+        cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+        cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+        # plot r
+        fig = plt.figure(1, figsize=(15., 12.))
+        ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values, alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
+
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
+        ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+        # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
+
+        plt.title("Better fit. Relative humidity (r) " + str(rd.time.values))
+        plt.savefig('../Datos/salidas/'
+                    + 'Relative humidity' + str(rd.time.values) + '.png')  # ,dpi=720
+
+        plt.show()
+
+    print("Media de los Valores del mejor ajuste\n", np.mean(meanMax1))
+
+
+def leerspecific_humidity2003_2021CMAS(): #specific_humidity2003_2021CMAS.nc
+    with xr.open_dataset(
+            'specific_humidity2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
+        print(ds.q.attrs)
+
+        # Append the height dimension
+        q_2003_2020 = ds.expand_dims({"height": 9})
+
+        # r_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # seleccionar periodo de tiempo
+
+        # calculate and assign the height coordinate to the set.
+        # calculate height = H * ln(level0 / level) where H = -7.9
+        q_2003_2020 = q_2003_2020.assign_coords(height=("height", (
+                7.9 * np.log(ds.level[8].values / ds.level.sel(level=slice(500, 1000)).values))))
+
+        # Calcular de los valores de so2 / valores de q en 950 HPa
+        q_2003_2020['q'] = q_2003_2020.q / (q_2003_2020.q.isel(height=7, level=7)+1)
+        print(q_2003_2020.q)
+
+        # Calcular el log de los datos de q
+        # log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    return ds, q_2003_2020
+
+
+def meanMesesspecific_humidity2003_2021CMAS(q_2003_2020):
+    # with xr.open_dataset('sulphur_dioxide2003_2021CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
+    #     print(ds.q.attrs)
+    # print(ds)
+    #
+    # # q_2003_2020 = ds.sel(time=slice('2003-01-01', '2020-12-01')) # time slice
+    # # calculate and assign the height coordinate to the set.
+    # q_2003_2020 = ds.assign_coords(height=("level", (-7.9 * np.log(ds.level.sel(level=slice(500, 1000)).values /
+    #                                                                  ds.level[8].values))))
+    listaDsMeses, listaMeanMeses = list(), list()
+    # altu = [0.5, 0.7, 1, 1.5, 1.75, 2, 2.5, 3, 4]
+    # q_2003_2020 = ds.assign_coords(height=('level',altu))#0.5, 0.7, 1, 1.25, 1,5, 1.75, 2, 2.25, 2.5, 3, 4
+    # print(q_2003_2020.height.values)
+    # Swap the level and height dimensions
+    # q_2003_2020 = q_2003_2020.swap_dims({"level": "height"})
+    # seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont = 0
+    # Calcular el log de los datos de r
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    print(log_q_2003_2020.sel(time='2003' + '-' + '01' + '-01'))
+    for i in range(1, 13):
+        listaDsMeses.append(log_q_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        contAnho, sumaDsAnho = 0, 0
+        for j in range(int(str(listaDsMeses[cont].time[0].values)[0:4]),
+                       int(str(listaDsMeses[0].time[-1].values)[0:4])):
+            print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+            sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+            contAnho += 1
+        print('Suma de los meses: ' + str(i) + ' para todos los años es:\n ', sumaDsAnho)
+        listaMeanMeses.append(sumaDsAnho / contAnho)
+        print('Media de los meses: ' + str(i) + ' para todos los años es:\n ', listaMeanMeses[cont])
+
+        # calculate rd[z] / rd[0] normalización
+        rd = listaMeanMeses[cont]
+
+        # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+        # Hx = -1 / (rdC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = rd[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        # Hx = k.polyfit_coefficients[0]
+        print(Hx)
 
         # cmap = mpl.cm.jet  # seleccionar el color del mapa
         cmap = copy.copy(mpl.cm.get_cmap("jet"))
@@ -803,41 +1494,332 @@ def relative_humidity2003_2021CMAS(ds, r_2003_2020):
         # plot r
         fig = plt.figure(1, figsize=(15., 12.))
         ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
-        ax.coastlines()
-        # ax.set_ylabel('YLabel 1')
-        # fig.align_ylabels()
-        # ax.set_ylabel('verbosity coefficient')
-        # ax.set_yticks([0,HXPolyvald['latitude'].max().values])
-        # ax.set_xticks([0, HXPolyvald['longitude'].max().values])
 
-        # HXPolyvald[1,:,:].plot.contourf(cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'},
-        #                                levels=(np.linspace(0.5, HXPolyvald.max().values, num=15)))  # HXPolyvald[8,:,:].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(np.linspace(0.5, 5, num=15)))  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 2.8, num=10)), vmin=0, vmax=2.8)
 
-        Hx.polyfit_coefficients[0, :, :].plot.contourf(
-            cbar_kwargs={'label': '% Relative humidity'},
-            levels=(np.linspace(0.5, Hx.polyfit_coefficients[0, :, :].max().values,
-                                num=10)), cmap=cmap, vmin=0.5,
-            vmax=Hx.polyfit_coefficients[0, :, :].max().values)  # Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(
-        #    cbar_kwargs={'label': 'kg kg ** - 1 Sulfur dioxide mass_fraction_of_sulfur_dioxide_in_air'}, levels=(
-        #        np.linspace(0.5, Hx.polyfit_coefficients[1, :, :].max().values,
-        #                    num=33)))  # Hx.polyfit_coefficients[1,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[0, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[0,:,:].min().values, Hx.polyfit_coefficients[0,:,:].max().values,
-        #    num=10000)))  # -1 / Hx.polyfit_coefficients[0,:,:].plot.contourf()
-        # Hx.polyfit_coefficients[1, :, :].plot.contourf(levels=(
-        #    np.linspace(Hx.polyfit_coefficients[1,:,:].min().values, Hx.polyfit_coefficients[1,:,:].max().values,
-        #    num=200)))# -1 / Hx.polyfit_coefficients[1,:,:].plot.contourf()
-
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 2.8, num=10)),
+                          linewidth=0.5, vmin=0, vmax=2.8,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
         ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+        # ax.set_ylabel('Km')
+
+        plt.title('Mean Specific humidity (q) of months: ' + str(i) + ' 2003 - 2020 ')
+        plt.savefig('../Datos/salidas/0101/'
+                    + 'MediaMesSpecific humidity' + str(i) + '.png')  # ,dpi=720
+
+        plt.show()
+
+        cont += 1
+
+
+def meanMesesDec_Febspecific_humidity2003_2021CMAS(q_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [12, 1, 2]:
+        listaDsMeses.append(log_q_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950) +1)
+    # Hx = ((k.polyfit_coefficients[0] * 950) + 1) / 8
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 3, num=10)), vmin=0, vmax=3)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 3, num=10)),
+                      linewidth=0.5, vmin=0, vmax=3,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Specific humidity (q) of months Dec, Ene, Feb: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/0101/'
+                    + 'MediaMesDec_FebSpecific humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesMar_Mayspecific_humidity2003_2021CMAS(q_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [3, 4, 5]:
+        listaDsMeses.append(log_q_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 3, num=10)), vmin=0, vmax=3)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 3, num=10)),
+                      linewidth=0.5, vmin=0, vmax=3,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Specific humidity (q) of months Mar, Apr, May: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/0101/'
+                    + 'MediaMesMar_MaySpecific humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesJun_Augspecific_humidity2003_2021CMAS(q_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [6, 7, 8]:
+        listaDsMeses.append(log_q_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 3, num=10)), vmin=0, vmax=3)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 3, num=10)),
+                      linewidth=0.5, vmin=0, vmax=3,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Specific humidity (q) of months Jun, Jul, Aug: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/0101/'
+                    + 'MediaMesJun_Aug Specific humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def meanMesesSep_Novspecific_humidity2003_2021CMAS(q_2003_2020):
+    listaDsMeses, listaMeanMeses = list(), list()
+
+    # Calcular el log de los datos de so2
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+
+    # Seleccionar los periodos por meses y calcular las medias de los meses de los años
+    cont, d, sumaDsAnho = 0, 0, 0
+    for i in [9, 10, 11]:
+        listaDsMeses.append(log_q_2003_2020.where(lambda x: x.time.dt.month == i, drop=True))
+        if i < 6:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4])):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        else:
+            for j in range(int(str(listaDsMeses[cont].time.min().values)[0:4]),
+                           int(str(listaDsMeses[cont].time.max().values)[0:4]) + 1):
+                print(listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01'))
+                sumaDsAnho = sumaDsAnho + listaDsMeses[cont].sel(time=str(j) + '-' + str(i) + '-01')
+                d += 1
+        cont += 1
+    # Calcular la media de las matrices por meses
+    print('Suma de los meses: [12, 1, 2] total: ' + str(d) + ' para todos los años es:\n ', sumaDsAnho)
+    so24d = sumaDsAnho / d
+
+    # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+    k = so24d[0, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+    print("Valores del mejor ajuste polyfit \n", k)
+
+    Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+    print(Hx)
+
+    # cmap = mpl.cm.jet  # seleccionar el color del mapa
+    cmap = copy.copy(mpl.cm.get_cmap("jet"))
+    cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+    cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+    # plot SO2
+    fig = plt.figure(1, figsize=(15., 12.))
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+    CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values,  alpha=0.65,
+                    transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                    levels=(np.linspace(0, 3, num=10)), vmin=0, vmax=3)
+
+    CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                      transform=ccrs.PlateCarree(), levels=(np.linspace(0, 3, num=10)),
+                      linewidth=0.5, vmin=0, vmax=3,
+                      cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+    ax.set_extent((-180, 180, -90, 90))
+    ax.gridlines(draw_labels=True)
+    ax.coastlines(resolution='50m', linewidth=0.75)
+    ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+    CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
+
+    plt.title('Mean vertical profile scale Specific humidity (q) of months Sep, Oct, Nov: ' + ' 2003 - 2020 ')
+    plt.savefig('../Datos/salidas/0101/'
+                    + 'MediaMesSep_Nov Specific humidity' + str(i) + '.png')  # ,dpi=720
+
+    plt.show()
+
+
+def specific_humidity2003_2021CMAS(ds, q_2003_2020):
+    # Calcular el log de los datos de q
+    log_q_2003_2020 = np.log(q_2003_2020.q.sel(level=slice(600, 950), height=slice(4.036, 0.4052)))
+    meanMax1 = list()
+    for t in range(len(ds.time)):
+        rd = q_2003_2020.q.isel(time=t)
+
+        # calculo de la regresión lineal de los perfil vertical de la altura con minimos cuadrados
+        # k = -1 / (rC.polyfit(dim='height', deg=1, full=True, cov=True))  # skipna=False
+        k = log_q_2003_2020[0, t, :8, :, :].polyfit(dim='level', deg=1, full=True, cov=True)  # skipna=False
+        print("Valores del mejor ajuste polyfit \n", k)
+        Hx = 8 / ((k.polyfit_coefficients[0] * 950)+1)
+        print(Hx)
+
+        meanMax1.append(Hx.max().values)
+
+        # cmap = mpl.cm.jet  # seleccionar el color del mapa
+        cmap = copy.copy(mpl.cm.get_cmap("RdYlBu")).reversed()
+        cmap.set_over(color='indigo')  # seleccionar el valor maximo para traza en color blanco en el mapa
+        cmap.set_under(color='w')  # seleccionar el valor minimo para traza en color blanco en el mapa
+
+        # plot r
+        fig = plt.figure(1, figsize=(15., 12.))
+        ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0.0))
+
+        CS = ax.contour(Hx.longitude.values, Hx.latitude.values, Hx.values, alpha=0.65,
+                        transform=ccrs.PlateCarree(), cbar_kwargs={'label': 'Km'}, linewidth=0.5,
+                        levels=(np.linspace(0, 3, num=10)), vmin=0, vmax=3)
+
+        CS1 = ax.contourf(Hx.longitude.values, Hx.latitude.values, Hx.values,
+                          transform=ccrs.PlateCarree(), levels=(np.linspace(0, 3, num=10)),
+                          linewidth=0.5, vmin=0, vmax=3,
+                          cmap=cmap)  # Hx.longitude.values, Hx.latitude.values, Hx.values
+        ax.set_extent((-180, 180, -90, 90))
+        ax.gridlines(draw_labels=True)
+        ax.coastlines(resolution='50m', linewidth=0.75)
+        ax.clabel(CS, inline=0.5, fontsize=12, colors='k', fmt='%.1f')
+        CB = fig.colorbar(CS1, shrink=0.5, extend='both', orientation='vertical', label='Km', format='%.1f')
 
         # ax.set_ylabel('kg kg**-1 Sulphur dioxide mass_fraction_of_sulfur_dioxide_in_air')
 
-        plt.title("Better fit. Relative humidity (r) " + str(r4d.time.values))
-        plt.savefig('/home/leo/Documentos/Universidad/Trabajo_de_investigación/'
-                    'PerfilesVerticalesContaminantesAtmosfera/Datos/salidas/'
-                    + 'Relative humidity' + str(r4d.time.values) + '.png')  # ,dpi=720
+        plt.title("Better fit. Specific humidity (q) " + str(rd.time.values))
+        plt.savefig('../Datos/salidas/0101/'
+                    + 'Specific humidity' + str(rd.time.values) + '.png')  # ,dpi=720
 
         plt.show()
 

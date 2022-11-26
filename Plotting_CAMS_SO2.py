@@ -4,22 +4,43 @@ from Plotting_CAMS_SO2_Funiones import *
 # gif()
 
 # leer los datos de sulphur_dioxide2003_2021CMAS.nc
-ds, so2_2003_2020 = leersulphur_dioxide2003_2021CMAS()
-meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020)
-#sulphur_dioxide2003_2021CMAS(ds,so2_2003_2020)
-
+#ds, so2_2003_2020 = leersulphur_dioxide2003_2021CMAS()
+#creargraficoso2(ds,so2_2003_2020)
+#meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#meanMesesDec_Febsulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#meanMesesMar_Maysulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#meanMesesJun_Augsulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#meanMesesSep_Novsulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#sulphur_dioxide2003_2021CMAS(ds, so2_2003_2020)
 
 # leer los datos de sulphate_aerosol_mixing_ratio2003_2021CMAS.nc
-ds, aermr11_2003_2020 = leersulphate_aerosol_mixing_ratio2003_2021CMAS()
-meanMesessulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
+#ds, aermr11_2003_2020 = leersulphate_aerosol_mixing_ratio2003_2021CMAS()
+#meanMesessulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
+#meanMesesDec_Febsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
+#meanMesesMar_Maysulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
+#meanMesesJun_Augsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
+#meanMesesSep_Novsulphate_aerosol_mixing_ratio2003_2021CMAS(aermr11_2003_2020)
 #sulphate_aerosol_mixing_ratio2003_2021CMAS(ds, aermr11_2003_2020)
 
 # leer los datos de so2_precursor_mixing_ratio2003_2021CMAS.nc
-ds, aermr12_2003_2020 = leerso2_precursor_mixing_ratio2003_2021CMAS()
-meanMesesso2_precursor_mixing_ratio2003_2021CMAS(aermr12_2003_2020)
-#so2_precursor_mixing_ratio2003_2021CMAS(ds, aermr12_2003_2020)
+#ds, aermr12_2003_2020 = leerso2_precursor_mixing_ratio2003_2021CMAS()
+# meanMesesso2_precursor_mixing_ratio2003_2021CMAS(aermr12_2003_2020)
+# so2_precursor_mixing_ratio2003_2021CMAS(ds, aermr12_2003_2020)
 
 # leer los datos de relative_humidity2003_2021CMAS.nc
-ds, r_2003_2020 = leerrelative_humidity2003_2021CMAS()
-meanMesesrelative_humidity2003_2021CMAS(r_2003_2020)
+#ds, r_2003_2020 = leerrelative_humidity2003_2021CMAS()
+#meanMesesrelative_humidity2003_2021CMAS(r_2003_2020)
+#meanMesesDec_Febrelative_humidity2003_2021CMAS(r_2003_2020)
+#meanMesesMar_Mayrelative_humidity2003_2021CMAS(r_2003_2020)
+#meanMesesJun_Augrelative_humidity2003_2021CMAS(r_2003_2020)
+#meanMesesSep_Novrelative_humidity2003_2021CMAS(r_2003_2020)
 #relative_humidity2003_2021CMAS(ds, r_2003_2020)
+
+# leer los datos de specific_humidity2003_2021CMAS.nc
+ds, q_2003_2020 = leerspecific_humidity2003_2021CMAS()
+#meanMesesspecific_humidity2003_2021CMAS(q_2003_2020)
+#meanMesesDec_Febspecific_humidity2003_2021CMAS(q_2003_2020)
+#meanMesesMar_Mayspecific_humidity2003_2021CMAS(q_2003_2020)
+#meanMesesJun_Augspecific_humidity2003_2021CMAS(q_2003_2020)
+#meanMesesSep_Novspecific_humidity2003_2021CMAS(q_2003_2020)
+#specific_humidity2003_2021CMAS(ds, q_2003_2020)
