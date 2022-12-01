@@ -9,8 +9,8 @@ Python libraries used:
 -cartopy
 ## Descripción del método utilizado
 
-Se calculo la altura de los niveles de presion de los conjunto de datos utilizando la ecuacion de la Altura de escala de la atmosfera terrestre.
+The height of the pressure levels of the data sets was calculated using the Earth's Atmosphere Scale Height equation.
 
 $$ P = P0 * exp (z / -H)$$ 
 
-Se calculó el ajuste polinomial de los mínimos cuadrados de los conjuntos de datos de cada variable. Como resultado de la Implementanción de la librería xarray y la función polyfit().
+The polynomial fit of the least squares of the data sets of each variable was calculated. With the implementation of the library xarray and the funtion polyfit().
