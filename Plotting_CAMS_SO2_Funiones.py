@@ -55,7 +55,7 @@ def creargraficoso2(ds, so2_2003_2020):
 
 def leersulphur_dioxide2003_2021CMAS():
     with xr.open_dataset('sulphur_dioxideEne_dic2003_2020CMAS.nc') as ds:  # sulphur_dioxideEne_dic2003_2020CMAS.nc
-        print(ds)
+        print(ds.dims)
         # Append the height dimension
         so2_2003_2020 = ds.expand_dims({"height": 9})
         print("Append the height dimension: \n", so2_2003_2020.dims)
