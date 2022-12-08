@@ -1,12 +1,12 @@
 from Plotting_CAMS_SO2_Funiones import *
 
 crear gif
-gif()
+#gif()
 
 # leer los datos de sulphur_dioxide2003_2021CMAS.nc
-ds, so2_2003_2020 = leersulphur_dioxide2003_2021CMAS()
-creargraficoso2(ds,so2_2003_2020)
-meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020)
+#creargraficoso2(ds,so2_2003_2020)
+ds , so2_2003_2020 = leersulphur_dioxide2003_2021CMAS()
+"""meanMesessulphur_dioxide2003_2021CMAS(so2_2003_2020)
 meanMesesDec_Febsulphur_dioxide2003_2021CMAS(so2_2003_2020)
 meanMesesMar_Maysulphur_dioxide2003_2021CMAS(so2_2003_2020)
 meanMesesJun_Augsulphur_dioxide2003_2021CMAS(so2_2003_2020)
@@ -44,3 +44,4 @@ meanMesesMar_Mayspecific_humidity2003_2021CMAS(q_2003_2020)
 meanMesesJun_Augspecific_humidity2003_2021CMAS(q_2003_2020)
 meanMesesSep_Novspecific_humidity2003_2021CMAS(q_2003_2020)
 specific_humidity2003_2021CMAS(ds, q_2003_2020)
+ """
