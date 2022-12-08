@@ -1,6 +1,6 @@
 from Plotting_CAMS_SO2_Funiones import *
 
-crear gif
+#crear gif
 #gif()
 
 # leer los datos de sulphur_dioxide2003_2021CMAS.nc
